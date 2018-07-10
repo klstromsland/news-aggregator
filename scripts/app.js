@@ -55,38 +55,58 @@ APP.Main = (function() {
   var storyDetailsCommentTemplate =
       Handlebars.compile(tmplStoryDetailsComment);
 
+// SUMMARY OF CHANGES:
+// removed function colorizeAndScaleStories()
+// removed loop in function onStoryData(key, details)
+// tried to add requestAnimationFrame to function onStoryData(key, details)
+// moved some static html back to index.html from function onStoryClick(details)
+// removed styling from scrolling
+// tried to keep styling at top of functions
+// switch out css to remove stories to javascript function
+
+
   /**
    * As every single story arrives in shove its
    * content in at that exact moment. Feels like something
    * that should really be handled more delicately, and
    * probably in a requestAnimationFrame callback.
    */
-  function onStoryData (key, details) {
 
+  function getStoryData(key) {
+   var storyData = onStoryData.bind(this, key);
+   return storyData;
+   requestAnimationFrame(getStoryData);
+  }
+
+  function onStoryData (key, details) {
     // This seems odd. Surely we could just select the story
     // directly rather than looping through all of them.
-    var storyElements = document.querySelectorAll('.story');
 
-    for (var i = 0; i < storyElements.length; i++) {
+    // var story = document.querySelectorAll('.story');
+    // for (var i = 0; i < storyElements.length; i++) {
+      // if (storyElements[i].getAttribute('id') === 's-' + key) {
 
-      if (storyElements[i].getAttribute('id') === 's-' + key) {
+    if (details) {
+      details.time *= 1000;
+      // var story = storyElements[i];
+      var selector = 'div#s-' + key.toString() + '.story';
+      var story = document.querySelectorAll(selector)[0];
+      var html = storyTemplate(details);
+      story.innerHTML = html;
+      story.addEventListener('click', onStoryClick.bind(this, details));
+      // story.addEventListener('click', storyClick(details));
+      story.classList.add('clickable');
 
-        details.time *= 1000;
-        var story = storyElements[i];
-        var html = storyTemplate(details);
-        story.innerHTML = html;
-        story.addEventListener('click', onStoryClick.bind(this, details));
-        story.classList.add('clickable');
+      // Tick down. When zero we can batch in the next load.
+      storyLoadCount--;
 
-        // Tick down. When zero we can batch in the next load.
-        storyLoadCount--;
-
-      }
+      // }
     }
-
     // Colorize on complete.
-    if (storyLoadCount === 0)
-      colorizeAndScaleStories();
+    // if (storyLoadCount === 0) {
+      // colorizeAndScaleStories();
+    //   storyLoadCount = count;
+    // }
   }
 
   function onStoryClick(details) {
@@ -95,6 +115,7 @@ APP.Main = (function() {
 
     // Wait a little time then show the story details.
     setTimeout(showStory.bind(this, details.id), 60);
+    // requestAnimationFrame(openStory(details.id));
 
     // Create and append the story. A visual change...
     // perhaps that should be in a requestAnimationFrame?
@@ -102,37 +123,38 @@ APP.Main = (function() {
     // need to make a new element every single time? I mean,
     // it inflates the DOM and I can only see one at once.
     if (!storyDetails) {
-
-      if (details.url)
+        if (details.url)
         details.urlobj = new URL(details.url);
 
       var comment;
       var commentsElement;
       var storyHeader;
       var storyContent;
-
+      var storyDetails = document.getElementsByClassName('story-details');
+      storyDetails = storyDetails[0];
       var storyDetailsHtml = storyDetailsTemplate(details);
       var kids = details.kids;
       var commentHtml = storyDetailsCommentTemplate({
         by: '', text: 'Loading comment...'
       });
 
-      storyDetails = document.createElement('section');
+      // storyDetails = document.createElement('section');
       storyDetails.setAttribute('id', 'sd-' + details.id);
-      storyDetails.classList.add('story-details');
+      // storyDetails.classList.add('story-details');
       storyDetails.innerHTML = storyDetailsHtml;
 
-      document.body.appendChild(storyDetails);
+      // document.body.appendChild(storyDetails);
 
       commentsElement = storyDetails.querySelector('.js-comments');
       storyHeader = storyDetails.querySelector('.js-header');
       storyContent = storyDetails.querySelector('.js-content');
+      // var headerHeight = storyHeader.getBoundingClientRect().height;
+      var headerHeight = storyHeader.clientHeight;
+      storyContent.style.paddingTop = headerHeight + 'px';
 
       var closeButton = storyDetails.querySelector('.js-close');
       closeButton.addEventListener('click', hideStory.bind(this, details.id));
-
-      var headerHeight = storyHeader.getBoundingClientRect().height;
-      storyContent.style.paddingTop = headerHeight + 'px';
+      // closeButton.addEventListener('click', closeStory(details.id));
 
       if (typeof kids === 'undefined')
         return;
@@ -158,8 +180,8 @@ APP.Main = (function() {
         });
       }
     }
-
   }
+
 
   function showStory(id) {
 
@@ -174,14 +196,16 @@ APP.Main = (function() {
     if (!storyDetails)
       return;
 
-    document.body.classList.add('details-active');
-    storyDetails.style.opacity = 1;
-
     function animate () {
-
       // Find out where it currently is.
+      var storylist = document.querySelectorAll(".story");
+      for (var i = 0; i < storylist.length; i++) {
+        storylist[i].style.display = 'none';
+      }
+      storyDetails.style.left = left + 'px';
+      storyDetails.style.opacity = 1;
       var storyDetailsPosition = storyDetails.getBoundingClientRect();
-
+      document.body.classList.add('details-active');
       // Set the left value if we don't have one already.
       if (left === null)
         left = storyDetailsPosition.left;
@@ -191,21 +215,23 @@ APP.Main = (function() {
 
       // Set up the next bit of the animation if there is more to do.
       if (Math.abs(left) > 0.5)
-        setTimeout(animate, 4);
+        // setTimeout(animate, 4);
+        requestAnimationFrame(animate);
       else
         left = 0;
 
       // And update the styles. Wait, is this a read-write cycle?
       // I hope I don't trigger a forced synchronous layout!
-      storyDetails.style.left = left + 'px';
     }
-
+    // storyDetails.style.opacity = 1;
     // We want slick, right, so let's do a setTimeout
     // every few milliseconds. That's going to keep
     // it all tight. Or maybe we're doing visual changes
     // and they should be in a requestAnimationFrame
-    setTimeout(animate, 4);
+    // setTimeout(animate, 4);
+    requestAnimationFrame(animate);
   }
+
 
   function hideStory(id) {
 
@@ -215,75 +241,76 @@ APP.Main = (function() {
     var storyDetails = $('#sd-' + id);
     var left = 0;
 
-    document.body.classList.remove('details-active');
-    storyDetails.style.opacity = 0;
-
     function animate () {
-
       // Find out where it currently is.
+      storyDetails.style.left = left + 'px';
+      storyDetails.style.opacity = 0;
+      document.body.classList.remove('details-active');
       var mainPosition = main.getBoundingClientRect();
       var storyDetailsPosition = storyDetails.getBoundingClientRect();
       var target = mainPosition.width + 100;
-
+      var storylist = document.querySelectorAll(".story");
+      for (var i = 0; i < storylist.length; i++) {
+        storylist[i].style.display = 'block';
+      }
       // Now figure out where it needs to go.
       left += (target - storyDetailsPosition.left) * 0.1;
 
       // Set up the next bit of the animation if there is more to do.
       if (Math.abs(left - target) > 0.5) {
-        setTimeout(animate, 4);
+        // setTimeout(animate, 4);
+        requestAnimationFrame(animate);
       } else {
         left = target;
         inDetails = false;
       }
-
       // And update the styles. Wait, is this a read-write cycle?
       // I hope I don't trigger a forced synchronous layout!
-      storyDetails.style.left = left + 'px';
     }
 
     // We want slick, right, so let's do a setTimeout
     // every few milliseconds. That's going to keep
     // it all tight. Or maybe we're doing visual changes
     // and they should be in a requestAnimationFrame
-    setTimeout(animate, 4);
+    // setTimeout(animate, 4);
+    requestAnimationFrame(animate);
   }
 
   /**
    * Does this really add anything? Can we do this kind
    * of work in a cheaper way?
    */
-  function colorizeAndScaleStories() {
-
-    var storyElements = document.querySelectorAll('.story');
-
-    // It does seem awfully broad to change all the
-    // colors every time!
-    for (var s = 0; s < storyElements.length; s++) {
-
-      var story = storyElements[s];
-      var score = story.querySelector('.story__score');
-      var title = story.querySelector('.story__title');
-
-      // Base the scale on the y position of the score.
-      var height = main.offsetHeight;
-      var mainPosition = main.getBoundingClientRect();
-      var scoreLocation = score.getBoundingClientRect().top -
-          document.body.getBoundingClientRect().top;
-      var scale = Math.min(1, 1 - (0.05 * ((scoreLocation - 170) / height)));
-      var opacity = Math.min(1, 1 - (0.5 * ((scoreLocation - 170) / height)));
-
-      score.style.width = (scale * 40) + 'px';
-      score.style.height = (scale * 40) + 'px';
-      score.style.lineHeight = (scale * 40) + 'px';
-
-      // Now figure out how wide it is and use that to saturate it.
-      scoreLocation = score.getBoundingClientRect();
-      var saturation = (100 * ((scoreLocation.width - 38) / 2));
-
-      score.style.backgroundColor = 'hsl(42, ' + saturation + '%, 50%)';
-      title.style.opacity = opacity;
-    }
-  }
+  // function colorizeAndScaleStories() {
+  //
+  //   var storyElements = document.querySelectorAll('.story');
+  //   // It does seem awfully broad to change all the
+  //   // colors every time!
+  //   for (var s = 0; s < storyElements.length; s++) {
+  //
+  //     var story = storyElements[s];
+  //     var score = story.querySelector('.story__score');
+  //     var title = story.querySelector('.story__title');
+  //
+  //     // Base the scale on the y position of the score.
+  //     var height = main.offsetHeight;
+  //     var mainPosition = main.getBoundingClientRect();
+  //     var scoreLocation = score.getBoundingClientRect().top -
+  //         document.body.getBoundingClientRect().top;
+  //     var scale = Math.min(1, 1 - (0.05 * ((scoreLocation - 170) / height)));
+  //     var opacity = Math.min(1, 1 - (0.5 * ((scoreLocation - 170) / height)));
+  //
+  //     score.style.width = (scale * 40) + 'px';
+  //     score.style.height = (scale * 40) + 'px';
+  //     score.style.lineHeight = (scale * 40) + 'px';
+  //
+  //     // Now figure out how wide it is and use that to saturate it.
+  //     scoreLocation = score.getBoundingClientRect();
+  //     var saturation = (100 * ((scoreLocation.width - 38) / 2));
+  //
+  //     score.style.backgroundColor = 'hsl(42, ' + saturation + '%, 50%)';
+  //     title.style.opacity = opacity;
+  //   }
+  // }
 
   main.addEventListener('touchstart', function(evt) {
 
@@ -302,11 +329,11 @@ APP.Main = (function() {
     var scrollTopCapped = Math.min(70, main.scrollTop);
     var scaleString = 'scale(' + (1 - (scrollTopCapped / 300)) + ')';
 
-    colorizeAndScaleStories();
+    // colorizeAndScaleStories();
 
-    header.style.height = (156 - scrollTopCapped) + 'px';
-    headerTitles.style.webkitTransform = scaleString;
-    headerTitles.style.transform = scaleString;
+    // header.style.height = (156 - scrollTopCapped) + 'px';
+    // headerTitles.style.webkitTransform = scaleString;
+    // headerTitles.style.transform = scaleString;
 
     // Add a shadow to the header.
     if (main.scrollTop > 70)
@@ -320,6 +347,7 @@ APP.Main = (function() {
     if (main.scrollTop > loadThreshold)
       loadStoryBatch();
   });
+
 
   function loadStoryBatch() {
 
@@ -346,9 +374,10 @@ APP.Main = (function() {
       });
       main.appendChild(story);
 
-      APP.Data.getStoryById(stories[i], onStoryData.bind(this, key));
-    }
 
+      // APP.Data.getStoryById(stories[i], onStoryData.bind(this, key));
+      APP.Data.getStoryById(stories[i], getStoryData(key));
+    }
     storyStart += count;
 
   }
